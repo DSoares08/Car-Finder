@@ -1,3 +1,4 @@
+import undetected_chromedriver as uc
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -9,29 +10,15 @@ import tempfile
 from selenium import webdriver
 
 from webdriver_manager.chrome import ChromeDriverManager
-
-# Create a unique temporary directory with timestamp
-import time
-custom_data_dir = os.path.expanduser(f"/home/diogo/chrome_data_{int(time.time())}")
-os.makedirs(custom_data_dir, exist_ok=True)
-
-# Add it to your options
-# Setup Chrome options
+user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 options = Options()
-# options.add_argument("--remote-debugging-port=9222")
-# options.add_argument("--disable-dev-shm-usage")
-# options.add_argument(f"--user-data-dir={custom_data_dir}")
-# options.add_argument("--disable-extensions")
-# options.add_argument("--disable-gpu")
-# options.add_argument("--no-sandbox")
+options.add_argument(f'user-agent={user_agent}')
+options.add_argument("--disable-blink-features=AutomationControlled")
 chromedriver_path = ChromeDriverManager().install()
 service = Service(executable_path=chromedriver_path)
-# chrome_driver_path = os.path.expanduser("/home/diogo/chromedriver-linux64/chromedriver-linux64/chromedriver")
-print('wallahi')
-driver = webdriver.Chrome(service=service, options=options)
-print('we made it')
+driver = uc.Chrome(options=options, use_subprocess=True)
 try:
-    driver.get("https://suchen.mobile.de/fahrzeuge/search.html")
+    driver.get("https://mobile.de")
 
     # Accept GDPR consent if button appears
     try:
@@ -44,29 +31,54 @@ try:
         print("No GDPR consent popup found, continuing...")
 
     # # Click the search button
-    search_button = WebDriverWait(driver, 30).until(
-        EC.element_to_be_clickable((By.ID, "dsp-upper-search-btn"))
+    consent_button = WebDriverWait(driver, 3000).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "button.mde-consent-accept-btn"))
     )
-    # search_button.click()
-    #
-    # # Wait for search results
-    # results = WebDriverWait(driver, 10).until(
-    #     EC.presence_of_all_elements_located((By.CLASS_NAME, "cBox-body--resultitem"))
-    # )
-    #
-    # print(f"Found {len(results)} results.")
+    consent_button.click()
 
-    # Extract and print car information
-    # for result in results:
-    #     try:
-    #         title = result.find_element(By.CLASS_NAME, "headline-block").text
-    #         price = result.find_element(By.CLASS_NAME, "price-block").text
-    #         print(f"Title: {title}, Price: {price}")
-    #     except Exception as e:
-    #         print("Could not extract details for one of the results:", e)
+    try:
+        honda = driver.find_element(By.XPATH, "//option[@value='11000']")
+        honda.click()
+    except Exception as e:
+        print("Honda input not found, continuing...")
+    time.sleep(2)
+    try:
+        s2000 = driver.find_element(By.XPATH, "//option[@value='18']")
+        s2000.click()
+    except Exception as e:
+        print("s2000 input not found, continuing...")
+    time.sleep(2)
+    price = driver.find_element(By.XPATH, "//option[@value='27500']")
+    price.click()
+    time.sleep(2)
+    try:
+        search_button = driver.find_element(By.XPATH, "//button[@data-testid='qs-submit-button']")
+        search_button.click()
+    except Exception as e:
+        print("Search button not found, continuing...")
+    time.sleep(3) 
 
+
+    # # Wait for search results to update after sorting and filtering
+    results = WebDriverWait(driver, 10).until(
+        EC.presence_of_all_elements_located((By.XPATH, "//article[@class='A3G6X vTKPY' and not(@data-testid)]")) # Or a more specific selector for results
+    )
+    print(results)
+    #
+    print(f"Found {len(results)} results after sorting and filtering.")
+
+    # Extract and print car information (optional, can be re-enabled)
+    for result in results[1:]:
+        try:
+            title = result.find_element(By.CLASS_NAME, "headline-block").text
+            price = result.find_element(By.CLASS_NAME, "price-block").text
+            print(f"Title: {title}, Price: {price}")
+        except Exception as e:
+            print("Could not extract details for one of the results:", e)
+
+    time.sleep(5000)
 except Exception as e:
     print("An error occurred:", e)
 
-finally:
-    driver.quit()
+# finally:
+#     driver.quit()
