@@ -10,9 +10,10 @@ import tempfile
 from selenium import webdriver
 
 from webdriver_manager.chrome import ChromeDriverManager
+
 user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 options = Options()
-options.add_argument(f'user-agent={user_agent}')
+options.add_argument(f"user-agent={user_agent}")
 options.add_argument("--disable-blink-features=AutomationControlled")
 chromedriver_path = ChromeDriverManager().install()
 service = Service(executable_path=chromedriver_path)
@@ -52,30 +53,56 @@ try:
     price.click()
     time.sleep(2)
     try:
-        search_button = driver.find_element(By.XPATH, "//button[@data-testid='qs-submit-button']")
+        search_button = driver.find_element(
+            By.XPATH, "//button[@data-testid='qs-submit-button']"
+        )
         search_button.click()
     except Exception as e:
         print("Search button not found, continuing...")
-    time.sleep(3) 
-
+    time.sleep(3)
 
     # # Wait for search results to update after sorting and filtering
     results = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.XPATH, "//article[@class='A3G6X vTKPY' and not(@data-testid)]")) # Or a more specific selector for results
+        EC.presence_of_all_elements_located(
+            (By.XPATH, "//article[@class='A3G6X vTKPY' and not(@data-testid)]")
+        )  # Or a more specific selector for results
     )
     print(results)
     #
     print(f"Found {len(results)} results after sorting and filtering.")
 
-    # Extract and print car information (optional, can be re-enabled)
     for result in results[1:]:
+        original_window = driver.current_window_handle
+        # Extract and print car information (optional, can be re-enabled)
+        all_windows_before_click = set(
+            driver.window_handles
+        )  # Use a set for easier difference
         try:
-            title = result.find_element(By.CLASS_NAME, "headline-block").text
-            price = result.find_element(By.CLASS_NAME, "price-block").text
-            print(f"Title: {title}, Price: {price}")
+            title = result.find_element(
+                By.XPATH, ".//span[contains(text(), 'Honda S2000')]"
+            )
+            print(title)
+            title.click()
+            time.sleep(2)
+            link = driver.current_url
+            print(f"Found car at URL: {link}")
+            WebDriverWait(driver, 10).until(
+                EC.number_of_windows_to_be(len(all_windows_before_click) + 1)
+            )
+
+            all_windows_after_click = set(driver.window_handles)
+            new_window_handles = all_windows_after_click - all_windows_before_click
+            new_window_handle = new_window_handles.pop()
+            # Close the current tab
+            driver.switch_to.window(new_window_handle)
+            driver.close()
+            driver.switch_to.window(original_window)
+
+        # If there are other tabs open, switch to the first one
+        # if len(driver.window_handles) > 0:
+        #     driver.switch_to.window(driver.window_handles[0])
         except Exception as e:
             print("Could not extract details for one of the results:", e)
-
     time.sleep(5000)
 except Exception as e:
     print("An error occurred:", e)
